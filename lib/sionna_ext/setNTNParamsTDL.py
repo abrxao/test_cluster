@@ -1,28 +1,38 @@
 import json
 from importlib_resources import files
 import numpy as np
-
 import tensorflow as tf
-
-from sionna import PI, SPEED_OF_LIGHT
-from sionna import config
-from sionna.utils import (
-    insert_dims,
-    expand_to_rank,
-    matrix_sqrt,
-    split_dim,
-    flatten_last_dims,
-)
-from sionna.channel import ChannelModel
-
 from . import models
 from sionna.channel.tr38901 import TDL
+from ..delaySpreadNtnTdlData import delay_spread_data
+from ..utils import dBToLinear
 
 
-def setNTNParamsTDL(channel: TDL, fname: str):
-    source = files(models).joinpath(f"TDL-{fname}.json")
+def setNTNParamsTDL(
+    channel: TDL, fname: str, zone: str, band: str, angle_of_arrival: float = 50
+):
+    """Set the parameters of the TDL channel model for NTN scenarios.
+    Zone: Rural, Suburban
+    band: s_band, ka_band
+    fname: A, B, C, D
+    angle: Angle of arrival in degrees
+    """
+
+    source_base = files(models).joinpath(f"TDL-{fname}.json")
+    # Acess the file with the delay spread data
+    delay_spread_list = delay_spread_data[zone][band]
+    # Get the index of the angle of arrival
+    idx = 0
+    # Convert the angle of arrival to radians
+    angle_of_arrival = np.deg2rad(angle_of_arrival)
+    for i, theta in enumerate(delay_spread_list["theta_C"]):
+        if angle_of_arrival >= theta:
+            idx = i
+            break
+    # Setting delay spread
+    channel._delay_spread = dBToLinear(delay_spread_list["mu_lgDS"][idx]) * 100e-9
     # pylint: disable=unspecified-encoding
-    with open(source) as parameter_file:
+    with open(source_base) as parameter_file:
         params = json.load(parameter_file)
 
     # LoS scenario ?
