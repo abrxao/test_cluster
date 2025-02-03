@@ -52,7 +52,7 @@ def main():
         max_speed=20,
     )
 
-    setNTNParamsTDL(tdl_rural, "A", "rural", "s_band")
+    setNTNParamsTDL(tdl_rural, "A", "dense_urban", "s_band")
     # Generate CIR
     cir = tdl_rural(
         batch_size=1, num_time_steps=1000, sampling_frequency=subcarrier_spacing
@@ -72,7 +72,7 @@ def main():
         max_speed=20,
     )
 
-    setNTNParamsTDL(tdl_suburban, "D", "suburban", "s_band")
+    setNTNParamsTDL(tdl_suburban, "D", "dense_urban", "s_band")
     # Generate CIR
     cir = tdl_suburban(
         batch_size=1, num_time_steps=1000, sampling_frequency=subcarrier_spacing
@@ -86,6 +86,7 @@ def main():
     ts_1 = 0
     ts_2 = 99
     plt.figure(figsize=(15, 7))
+    plt.title("TDL-A vs TDL-D (Dense Urban Scenario)")
     plt.subplot(1, 2, 1)
     plt.plot(frequencies, linearToDB(np.abs(h_freq_s))[:, ts_1], "--", color="blue")
     plt.plot(
@@ -98,7 +99,6 @@ def main():
     plt.xlabel("Frequency (Hz)")
     plt.ylabel(r"Channel frequency response (dB)")
     plt.grid(alpha=0.5)
-    plt.legend([f"Suburban TS:{ts_1}", f"Suburban TS:{ts_2}"])
 
     ###################################################
     plt.subplot(1, 2, 2)
@@ -113,7 +113,7 @@ def main():
     plt.xlabel("Frequency (Hz)")
     plt.ylabel(r"Channel frequency response (dB)")
     plt.grid(alpha=0.5)
-    plt.legend([f"TDL-A NTN TS:{ts_1}", f"TDL-A NTN TS:{ts_2}"])
+    plt.legend([f"TS:{ts_1}", f"TS:{ts_2}"])
     plt.show()
 
 

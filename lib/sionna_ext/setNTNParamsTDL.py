@@ -5,32 +5,19 @@ import tensorflow as tf
 from . import models
 from sionna.channel.tr38901 import TDL
 from ..delaySpreadNtnTdlData import delay_spread_data
-from ..utils import dBToLinear
 
 
 def setNTNParamsTDL(
     channel: TDL, fname: str, zone: str, band: str, angle_of_arrival: float = 50
 ):
     """Set the parameters of the TDL channel model for NTN scenarios.
-    Zone: Rural, Suburban
+    Zone: Dense Urban
     band: s_band, ka_band
     fname: A, B, C, D
     angle: Angle of arrival in degrees
     """
 
     source_base = files(models).joinpath(f"TDL-{fname}.json")
-    # Acess the file with the delay spread data
-    delay_spread_list = delay_spread_data[zone][band]
-    # Get the index of the angle of arrival
-    idx = 0
-    # Convert the angle of arrival to radians
-    angle_of_arrival = np.deg2rad(angle_of_arrival)
-    for i, theta in enumerate(delay_spread_list["theta_C"]):
-        if angle_of_arrival >= theta:
-            idx = i
-            break
-    # Setting delay spread
-    channel._delay_spread = dBToLinear(delay_spread_list["mu_lgDS"][idx]) * 100e-9
     # pylint: disable=unspecified-encoding
     with open(source_base) as parameter_file:
         params = json.load(parameter_file)
@@ -44,6 +31,20 @@ def setNTNParamsTDL(
     # Loading cluster delays and mean powers
     channel._num_clusters = tf.constant(params["num_clusters"], tf.int32)
 
+    # Getting los key
+    los_key = "los" if channel._los else "nlos"
+    # Acess the file with the delay spread data
+    delay_spread_list = delay_spread_data[los_key][zone][band]
+    # Get the index of the angle of arrival
+    idx = 0
+    # Convert the angle of arrival to radians
+    angle_of_arrival = np.deg2rad(angle_of_arrival)
+    for i, theta in enumerate(delay_spread_list["theta_C"]):
+        if angle_of_arrival >= theta:
+            idx = i
+            break
+    # Setting delay spread
+    channel._delay_spread = 10 ** (delay_spread_list["mu_lgDS"][idx])
     # Retrieve power and delays
     delays = tf.constant(params["delays"], channel._real_dtype)
     mean_powers = np.power(10.0, np.array(params["powers"]) / 10.0)
