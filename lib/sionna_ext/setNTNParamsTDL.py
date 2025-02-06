@@ -7,7 +7,24 @@ from sionna.channel.tr38901 import TDL
 from ..delaySpreadNtnTdlData import delay_spread_data
 
 
-def setNTNParamsTDL(
+def getDelaySpread(is_los: str, zone: str, band: str, angle_of_arrival: float):
+    # Getting los key
+    los_key = "los" if is_los else "nlos"
+    # Acess the file with the delay spread data
+    delay_spread_list = delay_spread_data[los_key][zone][band]
+    # Get the index of the angle of arrival
+    idx = 0
+    # Convert the angle of arrival to radians
+    angle_of_arrival = np.deg2rad(angle_of_arrival)
+    for i, theta in enumerate(delay_spread_list["theta_C"]):
+        if angle_of_arrival >= theta:
+            idx = i
+            break
+    # Setting delay spread
+    return 10 ** (delay_spread_list["mu_lgDS"][idx])
+
+
+def setNTNParamsToTDL(
     channel: TDL, fname: str, zone: str, band: str, angle_of_arrival: float = 50
 ):
     """Set the parameters of the TDL channel model for NTN scenarios.
@@ -22,7 +39,7 @@ def setNTNParamsTDL(
     with open(source_base) as parameter_file:
         params = json.load(parameter_file)
 
-    # LoS scenario ?
+    # LoS scenario
     channel._los = bool(params["los"])
 
     # Scale the delays
@@ -30,21 +47,8 @@ def setNTNParamsTDL(
 
     # Loading cluster delays and mean powers
     channel._num_clusters = tf.constant(params["num_clusters"], tf.int32)
-
-    # Getting los key
-    los_key = "los" if channel._los else "nlos"
-    # Acess the file with the delay spread data
-    delay_spread_list = delay_spread_data[los_key][zone][band]
-    # Get the index of the angle of arrival
-    idx = 0
-    # Convert the angle of arrival to radians
-    angle_of_arrival = np.deg2rad(angle_of_arrival)
-    for i, theta in enumerate(delay_spread_list["theta_C"]):
-        if angle_of_arrival >= theta:
-            idx = i
-            break
-    # Setting delay spread
-    channel._delay_spread = 10 ** (delay_spread_list["mu_lgDS"][idx])
+    # Setting delay spread from NTN params
+    channel._delay_spread = getDelaySpread(channel._los, zone, band, angle_of_arrival)
     # Retrieve power and delays
     delays = tf.constant(params["delays"], channel._real_dtype)
     mean_powers = np.power(10.0, np.array(params["powers"]) / 10.0)

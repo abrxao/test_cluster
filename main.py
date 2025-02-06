@@ -1,119 +1,113 @@
-import os  # Configure which GPU
-import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
-from lib.sionna_ext.setNTNParamsTDL import setNTNParamsTDL
-from lib.utils import linearToDB
+from lib.sionna_ext.setNTNParamsTDL import setNTNParamsToTDL
 from sionna.channel.tr38901 import TDL
+from lib.configTensorFlow import configGPUTensorflow
 from sionna.channel import (
     cir_to_ofdm_channel,
     subcarrier_frequencies,
 )
+import matplotlib.pyplot as plt
+from lib.utils import linearToDB
+import numpy as np
 
-
-def configTF():
-    print("\nConfigurando GPU...\n")
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-    # Avoid warnings from TensorFlow
-    tf.get_logger().setLevel("ERROR")
-    gpus = tf.config.list_physical_devices("GPU")
-
-    if gpus:
-        print("__________________")
-        print("\n GPU Reconhecida ")
-        print("__________________")
-        gpu_num = 0  # Index of the GPU to be used
-        os.environ["CUDA_VISIBLE_DEVICES"] = f"{gpu_num}"
-        try:
-            # tf.config.set_visible_devices([], 'GPU')
-            tf.config.set_visible_devices(gpus[gpu_num], "GPU")
-            tf.config.experimental.set_memory_growth(gpus[gpu_num], True)
-        except RuntimeError as e:
-            print(e)
+# Getting Tensorflow configured for use GPU
+tf = configGPUTensorflow()
 
 
 def main():
-    configTF()
-    # consts
+    # The values below were chosen for demonstration purposes only
+    # Carrier frenquency
     fc = 3.5e9
-    subcarrier_spacing = 15e3
-    # num of subcarriers
+    # Subcarrier spacing
+    sc_spac = 15e3
+    # Num of subcarriers
     fft_size = 1024
-    frequencies = subcarrier_frequencies(fft_size, subcarrier_spacing) + fc
-    # Angle of Arrival em graus
-    AoA = 10
+    # Array of all frequencies in scene
+    frequencies = subcarrier_frequencies(fft_size, sc_spac) + fc
+    # Reducing array to optimize memory
+    frequencies = frequencies[6::12]
+    # Angle of Arrival in degrees
+    AoA = 50
+    # max speed for doppler shift
+    maxS = 20
+    # min speed for doppler shift
+    minS = 2
+    # Number of time steps
+    n_ts = 1000
 
-    tdl_rural = TDL(
-        model="D",
+    # Setting initial TDL
+    tdl_a = TDL(
+        model="A",
+        # Setting a initial delay spread
         delay_spread=100e-9,  # microseconds
         carrier_frequency=fc,
         los_angle_of_arrival=AoA,
-        min_speed=2,
-        max_speed=20,
+        min_speed=minS,
+        max_speed=maxS,
     )
 
-    setNTNParamsTDL(tdl_rural, "A", "dense_urban", "s_band")
+    setNTNParamsToTDL(tdl_a, "A", "dense_urban", "s_band")
     # Generate CIR
-    cir = tdl_rural(
-        batch_size=1, num_time_steps=1000, sampling_frequency=subcarrier_spacing
-    )
+    cir_a = tdl_a(batch_size=1, num_time_steps=n_ts, sampling_frequency=sc_spac)
     # Generate OFDM channel from CIR
-    ofdm_channel = cir_to_ofdm_channel(frequencies, *cir, normalize=True)
-    h_freq = tf.squeeze(ofdm_channel)
-    h_freq = np.transpose(h_freq, (1, 0))
-    ##############################################################3
+    ofdm_channel_a = cir_to_ofdm_channel(frequencies, *cir_a, normalize=True)
+    h_freq_a = tf.squeeze(ofdm_channel_a)
+    h_freq_a = tf.transpose(h_freq_a, perm=[1, 0])
 
-    tdl_suburban = TDL(
-        model="D",
+    # Setting initial TDL
+    tdl_d = TDL(
+        model="B",
+        # Setting a initial delay spread
         delay_spread=100e-9,  # microseconds
         carrier_frequency=fc,
         los_angle_of_arrival=AoA,
-        min_speed=2,
-        max_speed=20,
+        min_speed=minS,
+        max_speed=maxS,
     )
 
-    setNTNParamsTDL(tdl_suburban, "D", "dense_urban", "s_band")
+    setNTNParamsToTDL(tdl_d, "D", "dense_urban", "s_band")
     # Generate CIR
-    cir = tdl_suburban(
-        batch_size=1, num_time_steps=1000, sampling_frequency=subcarrier_spacing
-    )
+    cir_d = tdl_a(batch_size=1, num_time_steps=n_ts, sampling_frequency=sc_spac)
     # Generate OFDM channel from CIR
-    ofdm_channel_s = cir_to_ofdm_channel(frequencies, *cir, normalize=True)
-    h_freq_s = tf.squeeze(ofdm_channel_s)
-    h_freq_s = np.transpose(h_freq_s, (1, 0))
-    # Visualize results
-    ######## Plotting #########
+    ofdm_channel_d = cir_to_ofdm_channel(frequencies, *cir_d, normalize=True)
+    h_freq_d = tf.squeeze(ofdm_channel_d)
+    h_freq_d = tf.transpose(h_freq_d, perm=[1, 0])
+
     ts_1 = 0
-    ts_2 = 99
+    ts_2 = 100
+    frequencies *= 1e-9
     plt.figure(figsize=(15, 7))
-    plt.title("TDL-A vs TDL-D (Dense Urban Scenario)")
-    plt.subplot(1, 2, 1)
-    plt.plot(frequencies, linearToDB(np.abs(h_freq_s))[:, ts_1], "--", color="blue")
-    plt.plot(
+    ax1 = plt.subplot(1, 2, 1)
+    ax1.plot(frequencies, linearToDB(np.abs(h_freq_a))[:, ts_1], "--", color="blue")
+    ax1.plot(
         frequencies,
-        linearToDB(np.abs(h_freq_s))[:, ts_2],
+        linearToDB(np.abs(h_freq_a))[:, ts_2],
         "-",
         color="blue",
         alpha=0.5,
     )
-    plt.xlabel("Frequency (Hz)")
-    plt.ylabel(r"Channel frequency response (dB)")
-    plt.grid(alpha=0.5)
-
-    ###################################################
-    plt.subplot(1, 2, 2)
-    plt.plot(frequencies, linearToDB(np.abs(h_freq))[:, ts_1], "--", color="orange")
-    plt.plot(
+    ax1.set_xlabel("Frequency (GHz)")
+    ax1.set_ylabel(r"Channel frequency response (dB)")
+    ax1.grid(alpha=0.5)
+    ax1.legend([f"TDL-A NTN TS:{ts_1}", f"TDL-A NTN TS:{ts_2}"])
+    ######## Plotting Imaginary Part #########
+    ax2 = plt.subplot(1, 2, 2)
+    ax2.plot(
         frequencies,
-        linearToDB(np.abs(h_freq))[:, ts_2],
+        linearToDB(np.abs(h_freq_d))[:, ts_1],
+        "--",
+        color="orange",
+    )
+    ax2.plot(
+        frequencies,
+        linearToDB(np.abs(h_freq_d))[:, ts_2],
         "-",
         color="orange",
         alpha=0.5,
     )
-    plt.xlabel("Frequency (Hz)")
-    plt.ylabel(r"Channel frequency response (dB)")
-    plt.grid(alpha=0.5)
-    plt.legend([f"TS:{ts_1}", f"TS:{ts_2}"])
+    ax2.grid(alpha=0.5)
+    ax2.set_xlabel("Frequency (GHz)")
+    ax2.legend([f"TDL-D  TS:{ts_1}", f"TDL-D TS:{ts_2}"])
+    ax2.sharey(ax1)
     plt.show()
 
 
