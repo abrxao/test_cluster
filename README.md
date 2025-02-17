@@ -1,9 +1,10 @@
-# NTN Channel Simulator 
+# NTN Channel Simulator
 
 ## Prerequisites
 
 1. **UV Package Manager is recomended** ([uv-astral](https://docs.astral.sh/uv/getting-started/installation/))
 2. **CUDA and cuDNN Compatibility**: Refer to the table below to ensure compatibility with TensorFlow versions. [Check installation guide](https://developer.nvidia.com/cudnn-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04&target_type=deb_local)
+3.
 
 | TensorFlow Version | Python Version | cuDNN | CUDA |
 | ------------------ | -------------- | ----- | ---- |

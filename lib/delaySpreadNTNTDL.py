@@ -1,3 +1,5 @@
+import numpy as np
+
 delay_spread_data = {
     "los": {
         "dense_urban": {
@@ -12,19 +14,7 @@ delay_spread_data = {
                     -8.23,
                     -8.28,
                     -8.36,
-                ],
-                "theta_C": [
-                    0.0,
-                    0.174,
-                    0.349,
-                    0.523,
-                    0.698,
-                    0.872,
-                    1.047,
-                    1.221,
-                    1.396,
-                    1.570,
-                ],
+                ]
             },
             "ka_band": {
                 "mu_lgDS": [
@@ -37,18 +27,6 @@ delay_spread_data = {
                     -8.34,
                     -8.39,
                     -8.45,
-                ],
-                "theta_C": [
-                    0.0,
-                    0.174,
-                    0.349,
-                    0.523,
-                    0.698,
-                    0.872,
-                    1.047,
-                    1.221,
-                    1.396,
-                    1.570,
                 ],
             },
         },
@@ -67,18 +45,6 @@ delay_spread_data = {
                     -7.82,
                     -7.84,
                 ],
-                "theta_C": [
-                    0.0,
-                    0.174,
-                    0.349,
-                    0.523,
-                    0.698,
-                    0.872,
-                    1.047,
-                    1.221,
-                    1.396,
-                    1.570,
-                ],
             },
             "sa_band": {
                 "mu_lgDS": [
@@ -92,19 +58,25 @@ delay_spread_data = {
                     -8.07,
                     -7.95,
                 ],
-                "theta_C": [
-                    0.0,
-                    0.174,
-                    0.349,
-                    0.523,
-                    0.698,
-                    0.872,
-                    1.047,
-                    1.221,
-                    1.396,
-                    1.570,
-                ],
             },
         },
     },
 }
+
+
+def getDelaySpread(is_los: bool, zone: str, band: str, angle_of_arrival: float):
+    if angle_of_arrival < 10 or angle_of_arrival > 90:
+        raise ValueError("Angle of arrival must be between 10 and 90 degrees")
+    if zone not in delay_spread_data[is_los]:
+        raise ValueError(f"Zone {zone} not found")
+    if band not in delay_spread_data[is_los][zone]:
+        raise ValueError(f"Band {band} not found")
+
+    # Getting los key
+    los_key = "los" if is_los else "nlos"
+    # Acess the file with the delay spread data
+    delay_spread_list = delay_spread_data[los_key][zone][band]
+    # Get the index of the angle of arrival
+    idx = np.round(angle_of_arrival / 10 - 1).astype(int)
+    # Convert the angle of arrival to radians
+    return 10 ** (delay_spread_list["mu_lgDS"][idx])
