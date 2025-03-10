@@ -11,9 +11,10 @@ from sionna.channel import (
 import matplotlib.pyplot as plt
 from lib.utils import linearToDB
 import numpy as np
+import tensorflow as tf
 
 # Getting Tensorflow configured for use GPU
-tf = configTensorflow(useGPU=True)
+configTensorflow(useGPU=False)
 
 
 def main():
